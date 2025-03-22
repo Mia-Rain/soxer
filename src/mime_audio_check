@@ -1,0 +1,53 @@
+#!/bin/sh
+# shellcheck disable=SC2154
+
+export oPWD="${PWD}"
+# expects music dir as $1
+# then returns all tracks audio files after checking the standard mime types
+# in data dirs or /usr/share/mime or .local or ../state
+##
+# default flac support is present or users can simply keep only music files in the given folder
+##
+
+
+if [ "$1" = "./" ]; then
+  for dir in ./*/; do
+    oPWD="${PWD}"
+    cd "${dir}" || exit 1
+    mime_audio_check "$1"
+    cd ../
+    unset oPWD dir MIME_DIR ext_find_result find_result 
+  done
+fi
+if [ -d "$1" ] && [ "$1" != "./" ]; then
+  oPWD="${PWD}"
+  cd "${1}" || exit 1
+  set -- "./"
+fi
+
+
+oPWD="${PWD}"
+for find_result in $(_find "$1"); do
+  IFS=":"; for MIME_DIR in /usr/share ${XDG_DATA_DIRS} ${XDG_DATA_HOME} "${XDG_DATA_STATE}../share" "${HOME}/.local/share"; do
+    MIME_DIR="${MIME_DIR}/"
+    ext_find_result="${find_result##*.}"
+    # leave only extension
+    # TODO: add magic support
+    # TODO: future shebang support for use with construct.sh
+    if [ -e "${MIME_DIR}/mime/" ] && [ -f "${find_result}" ]; then
+      while read -r glob_line || [ "${glob_line}" ]; do
+        [ "${#glob_line}" -ge 2000 ] && exit 1
+        case "${glob_line}" in
+          *audio*"${ext_find_result}"*) echo "|| true | $find_result is $ext_find_result which is inface audio accordinmg to mime";;
+          *) :;;
+        esac
+      done < "${MIME_DIR}/mime/globs2"
+      
+    else 
+      continue
+    fi
+  done
+  [ -f "${find_result}" ] && echo "checked for ${find_result} in ${PWD} with"
+  cd "${oPWD}" || exit 1
+  [ "${#file}" -ge 100 ] && exit 1
+done
