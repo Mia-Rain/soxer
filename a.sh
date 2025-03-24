@@ -13,18 +13,17 @@ for file in "${1%/}/"*; do
   if [ -d "${file#"$1"}" ]; then
     dirname="${file#/}"
     [ "$2" ] && dirname="${2:+${2}/}${dirname#./}"
-    [ "${#2}" -ge 100 ] && return 1
+    [ "${#2}" -ge 1000 ] && return 1
     # all these checks are for freebsd sh
     # a case check is likely better here tbh
     printf '%s\n' "${dirname}"
-    [ "${find_orig_path}" ] || find_orig_path="${PWD}"
     cd "${dirname#"${2}"/}" || return 1
-    _find "./" "${dirname}"
-    cd "${find_orig_path}" || return 1
+    _find "./" "${dirname#"${1}"}"
+    cd "../" || return 1
   else
     filename="${1%/}/${file#/}" 
     [ -n "${2}" ] && filename="${2:+${2}/}${filename#./}"
-    [ "${#2}" -ge 100 ] && return 1
+    [ "${#2}" -ge 1000 ] && return 1
     printf '%s\n' "${filename}"
   fi
 done
@@ -40,6 +39,7 @@ export oPWD="${PWD}"
 # default flac support is present or users can simply keep only music files in the given folder
 ##
 
+search_dir="$1"
 
 if [ "$1" = "./" ]; then
   for dir in ./*/; do
@@ -66,19 +66,25 @@ for find_result in $(_find "$1"); do
     # TODO: add magic support
     # TODO: future shebang support for use with construct.sh
     if [ -e "${MIME_DIR}/mime/" ] && [ -f "${find_result}" ]; then
-      while read -r glob_line || [ "${glob_line}" ]; do
-        [ "${#glob_line}" -ge 2000 ] && return 1
-        case "${glob_line}" in
-          *audio*"${ext_find_result}"*) echo "|| true | $find_result is $ext_find_result which is inface audio accordinmg to mime";;
-          *) :;;
-        esac
-      done < "${MIME_DIR}/mime/globs2"
-      
+      if [ "${_res}" != "${search_dir%/}/${find_result}" ]; then
+        while read -r glob_line || [ "${glob_line}" ]; do
+          [ "${#glob_line}" -ge 2000 ] && return 1
+          case "${glob_line}" in
+            *audio*"${ext_find_result}"*) 
+              _res="${search_dir%/}/${find_result}"
+              echo "${_res}"
+              :
+              break
+              ;;
+            *) false;;
+          esac
+        done < "${MIME_DIR}/mime/globs2"
+      fi
     else 
       continue
     fi
   done
-  [ -f "${find_result}" ] && echo "checked for ${find_result} in ${PWD} with"
+  #[ -f "${find_result}" ] && echo "checked for ${find_result} in ${PWD} with"
   cd "${oPWD}" || return 1
   [ "${#file}" -ge 100 ] && return 1
 done
